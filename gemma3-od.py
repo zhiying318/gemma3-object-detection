@@ -30,7 +30,7 @@ visualize_bounding_boxes(
     data_sample["label_for_paligemma"],
     data_sample["width"],
     data_sample["height"],
-    "sample.png"
+    "outputs/sample.png"
 )
 
 processor = AutoProcessor.from_pretrained(cfg.model_id)
@@ -108,5 +108,5 @@ file_count = 0
 for output_text, sample_image in zip(decoded, sample_images):
     im = sample_image[0]
     width, height = im.size
-    visualize_bounding_boxes(im, output_text, width, height, f"output_{file_count}.png")
+    visualize_bounding_boxes(im, output_text, width, height, f"outputs/output_{file_count}.png")
     file_count += 1
