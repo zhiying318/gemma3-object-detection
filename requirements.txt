@@ -4,3 +4,4 @@ transformers
 accelerate
 matplotlib
 pillow
+wandb

@@ -59,10 +59,21 @@ def train_collate_fn(batch_of_samples, processor, dtype):
     labels = batch["input_ids"].clone()  # Clone input IDs for labels
 
     # Mask tokens for not being used in the loss computation
+    #labels[labels == processor.tokenizer.pad_token_id] = -100
+    #labels[labels == processor.tokenizer.boi_token_id] = -100
+    #labels[labels == processor.tokenizer.eoi_token_id] = -100
+    #labels[labels == processor.tokenizer.image_token_id] = -100
+
+    # List from https://ai.google.dev/gemma/docs/core/huggingface_vision_finetune_qlora
+    # Mask image tokens
+    image_token_id = [
+        processor.tokenizer.convert_tokens_to_ids(processor.tokenizer.special_tokens_map["boi_token"])
+    ]
+    # Mask tokens for not being used in the loss computation
     labels[labels == processor.tokenizer.pad_token_id] = -100
-    labels[labels == processor.tokenizer.boi_token_id] = -100
-    labels[labels == processor.tokenizer.eoi_token_id] = -100
-    labels[labels == processor.tokenizer.image_token_id] = -100
+    labels[labels == image_token_id] = -100
+    labels[labels == 262144] = -100
+    
 
     batch["labels"] = labels
 
