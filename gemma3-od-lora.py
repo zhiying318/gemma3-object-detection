@@ -1,4 +1,6 @@
-import os; os.environ["CUDA_VISIBLE_DEVICES"]="3"
+import os
+#os.environ["CUDA_VISIBLE_DEVICES"]="3"
+import wandb
 
 from config import Configuration
 from utils import visualize_bounding_boxes, train_collate_fn, test_collate_fn
@@ -40,18 +42,18 @@ visualize_bounding_boxes(
 
 processor = AutoProcessor.from_pretrained(cfg.model_id)
 
-# pg2_tok = AutoTokenizer.from_pretrained(cfg.pg2_id)
-# g3_tok = AutoTokenizer.from_pretrained(cfg.model_id)
+pg2_tok = AutoTokenizer.from_pretrained(cfg.pg2_id)
+g3_tok = AutoTokenizer.from_pretrained(cfg.model_id)
 
-# location_tokens = []
+location_tokens = []
 
-# values = list(pg2_tok.added_tokens_decoder.values())
-# for v in values:
-#     if "<loc" in v.content:
-#         location_tokens.append(v.content)
+values = list(pg2_tok.added_tokens_decoder.values())
+for v in values:
+    if "<loc" in v.content:
+        location_tokens.append(v.content)
 
-# g3_tok.add_tokens(location_tokens)
-# processor.tokenizer = g3_tok
+g3_tok.add_tokens(location_tokens)
+processor.tokenizer = g3_tok
 
 
 train_collate_fn = partial(train_collate_fn, processor=processor, dtype=cfg.dtype)
@@ -66,20 +68,21 @@ model = Gemma3ForConditionalGeneration.from_pretrained(
     # device_map=cfg.device,
     # attn_implementation="eager", # As Sergio points out
 )
-model.requires_grad_(False)
+model.requires_grad_(False) # We freeze the model since we're training the LoRA adapter
 
 lora_config = LoraConfig(
     inference_mode=False,
     r=8,
     lora_alpha=32,
     lora_dropout=0.1,
-    target_modules=["q_proj", "v_proj",],
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
     peft_type=PeftType.LORA,
 )
+
 lora_model = get_peft_model(model=model, peft_config=lora_config).to(cfg.device)
 lora_model.print_trainable_parameters()
 
-# model.resize_token_embeddings(len(processor.tokenizer)) # to integrate the new tokenizer
+model.resize_token_embeddings(len(processor.tokenizer)) # to integrate the new tokenizer
 
 sample, sample_images = next(iter(test_dataloader))
 sample = sample.to(cfg.device)
@@ -98,7 +101,7 @@ params_to_train = list(filter(lambda x: x.requires_grad, lora_model.parameters()
 optimizer = torch.optim.AdamW(params_to_train, lr=cfg.learning_rate)
 
 # Is the model activations deleted?
-
+wandb.init(project="g3-od-lora")
 for epoch in range(1):
     for idx, batch in enumerate(train_dataloader):
         outputs = lora_model(**batch.to(cfg.device))
@@ -110,6 +113,7 @@ for epoch in range(1):
         optimizer.step()
         optimizer.zero_grad()
 
+wandb.finish()
 # Push to Hub
 merged_model = lora_model.merge_and_unload()
 merged_model.push_to_hub("ariG23498/g3-od-lora")
