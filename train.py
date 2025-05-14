@@ -53,7 +53,7 @@ if __name__ == "__main__":
     processor = AutoProcessor.from_pretrained(cfg.model_id)
     train_dataloader = get_dataloader(processor)
 
-    logger.info("Getting model & turning only attention parameter to trainable")
+    logger.info("Getting model & turning only attention parameters to trainable")
     model = Gemma3ForConditionalGeneration.from_pretrained(
         cfg.model_id,
         torch_dtype=cfg.dtype,

@@ -1,7 +1,7 @@
 import re
 
 import matplotlib.pyplot as plt
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 
 def parse_paligemma_label(label, width, height):

@@ -11,7 +11,7 @@ This repository focuses on adapting vision and language understanding of Gemma 3
 
 ## Dataset:
 
-For fine-tuning, we use the [`ariG23498/license-detection-paligemma`](https://huggingface.co/datasets/ariG23498/license-detection-paligemma) dataset. This dataset is a modified version of `keremberke/license-plate-object-detection`, preprocessed to align with the input format expected by models that use location tokens for bounding boxes (similar to PaliGemma).
+For fine-tuning, we use the [`ariG23498/license-detection-paligemma`](https://huggingface.co/datasets/ariG23498/license-detection-paligemma) dataset. This dataset is a modified version of `keremberke/license-plate-object-detection`, preprocessed to align with the input format expected by models that use location tokens for bounding boxes (similar to PaliGemma). Refer to `create-dataset.py` for details on the process.
 
 ### Why Special `<locXXXX>` Tags?
 
@@ -21,48 +21,48 @@ It allows the language model to treat object locations as part of its existing v
 
 ## Setup and Installation
 
-Get your environment ready to fine-tune Gemma 3
+Get your environment ready to fine-tune Gemma 3:
 
 ```bash
 git clone https://github.com/ariG23498/gemma3-object-detection.git
 uv venv .venv --python 3.10
-sourve .venv/bin/activate
+source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
 ## Usage
 
-Follow these steps to configure, train, and run predictions
+Follow these steps to configure, train, and run predictions:
 
 1. Configuration (`config.py`): All major parameters are centralized here. Before running any script, review and adjust these settings as needed.
-2. Training (`train.py`): This script handles the fine-tuning process
+2. Training (`train.py`): This script handles the fine-tuning process.
 3. Running inference (`infer.py`): Run this to visualize object detection.
 
 ## Roadmap
 
 Here are some tasks that we would want to investigate further.
 
-1. Low Rank Adaptation Training
-2. Quantized Low Rank Adaptation Training
-3. Extend the tokenizer of Gemma 3 with the `<locxxxx>` tags
-4. Train with a bigger object detection dataset 
+1. Low Rank Adaptation Training.
+2. Quantized Low Rank Adaptation Training.
+3. Extend the tokenizer of Gemma 3 with the `<locxxxx>` tags.
+4. Train with a bigger object detection dataset .
 
 
 ## Contributions
 
 We welcome contributions to enhance this project! If you have ideas for improvements, bug fixes, or new features, please:
 
-1. Fork the repository
-2. Create a new branch for your feature or fix
+1. Fork the repository.
+2. Create a new branch for your feature or fix:
 ```bash
 git checkout -b feature/my-new-feature
 ```
 3. Implement your changes.
-4. Commit your changes with clear messages
+4. Commit your changes with clear messages:
 ```bash
 git commit -am 'Add some amazing feature'
 ```
-5. Push your branch to your fork
+5. Push your branch to your fork:
 ```bash
 git push origin feature/my-new-feature
 ```
@@ -70,7 +70,7 @@ git push origin feature/my-new-feature
 
 ## Citation Information
 
-If you use our work please cite us.
+If you use our work, please cite us.
 ```
 @misc{gosthipaty_gemma3_object_detection_2025,
   author = {Aritra Roy Gosthipaty and Sergio Paniego},
