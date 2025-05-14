@@ -1,14 +1,16 @@
 import re
+
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 
+
 def parse_paligemma_label(label, width, height):
     # Extract location codes
-    loc_pattern = r'<loc(\d{4})>'
+    loc_pattern = r"<loc(\d{4})>"
     locations = [int(loc) for loc in re.findall(loc_pattern, label)]
 
     # Extract category (everything after the last location code)
-    category = label.split('>')[-1].strip()
+    category = label.split(">")[-1].strip()
 
     # Convert normalized locations back to original image coordinates
     # Order in PaliGemma format is: y1, x1, y2, x2
@@ -32,61 +34,64 @@ def visualize_bounding_boxes(image, label, width, height, name):
     category, bbox = parse_paligemma_label(label, width, height)
 
     # Draw the bounding box
-    draw.rectangle(bbox, outline='red', width=2)
+    draw.rectangle(bbox, outline="red", width=2)
 
     # Add category label
-    draw.text((bbox[0], max(0, bbox[1]-10)), category, fill='red')
+    draw.text((bbox[0], max(0, bbox[1] - 10)), category, fill="red")
 
     # Show the image
     plt.figure(figsize=(10, 6))
     plt.imshow(draw_image)
-    plt.axis('off')
-    plt.title(f'Bounding Box: {category}')
+    plt.axis("off")
+    plt.title(f"Bounding Box: {category}")
     plt.tight_layout()
     plt.show()
     plt.savefig(name)
 
-def train_collate_fn(batch_of_samples, processor, dtype):
+
+def train_collate_function(batch_of_samples, processor, dtype):
     images = []
     prompts = []
     for sample in batch_of_samples:
         images.append([sample["image"]])
-        prompts.append(f'{processor.tokenizer.boi_token} detect \n\n{sample["label_for_paligemma"]} {processor.tokenizer.eos_token}')
+        prompts.append(
+            f"{processor.tokenizer.boi_token} detect \n\n{sample['label_for_paligemma']} {processor.tokenizer.eos_token}"
+        )
 
     batch = processor(images=images, text=prompts, return_tensors="pt", padding=True)
 
     # The labels are the input_ids, and we mask the padding tokens in the loss computation
     labels = batch["input_ids"].clone()  # Clone input IDs for labels
 
-    # Mask tokens for not being used in the loss computation
-    #labels[labels == processor.tokenizer.pad_token_id] = -100
-    #labels[labels == processor.tokenizer.boi_token_id] = -100
-    #labels[labels == processor.tokenizer.eoi_token_id] = -100
-    #labels[labels == processor.tokenizer.image_token_id] = -100
-
     # List from https://ai.google.dev/gemma/docs/core/huggingface_vision_finetune_qlora
     # Mask image tokens
     image_token_id = [
-        processor.tokenizer.convert_tokens_to_ids(processor.tokenizer.special_tokens_map["boi_token"])
+        processor.tokenizer.convert_tokens_to_ids(
+            processor.tokenizer.special_tokens_map["boi_token"]
+        )
     ]
     # Mask tokens for not being used in the loss computation
     labels[labels == processor.tokenizer.pad_token_id] = -100
     labels[labels == image_token_id] = -100
     labels[labels == 262144] = -100
-    
 
     batch["labels"] = labels
 
-    batch["pixel_values"] = batch["pixel_values"].to(dtype) # to check with the implementation
+    batch["pixel_values"] = batch["pixel_values"].to(
+        dtype
+    )  # to check with the implementation
     return batch
 
-def test_collate_fn(batch_of_samples, processor, dtype):
+
+def test_collate_function(batch_of_samples, processor, dtype):
     images = []
     prompts = []
     for sample in batch_of_samples:
         images.append([sample["image"]])
-        prompts.append(f'{processor.tokenizer.boi_token} detect \n\n')
+        prompts.append(f"{processor.tokenizer.boi_token} detect \n\n")
 
     batch = processor(images=images, text=prompts, return_tensors="pt", padding=True)
-    batch["pixel_values"] = batch["pixel_values"].to(dtype) # to check with the implementation
+    batch["pixel_values"] = batch["pixel_values"].to(
+        dtype
+    )  # to check with the implementation
     return batch, images

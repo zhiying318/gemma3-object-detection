@@ -1,7 +1,8 @@
-huggingface_hub[hf_xet]
-datasets
+torch
 transformers
 accelerate
+datasets
 matplotlib
-pillow
+huggingface_hub[hf_xet]
+bitsandbytes
 wandb
