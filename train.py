@@ -1,4 +1,5 @@
 import logging
+import wandb
 from functools import partial
 
 import torch
@@ -43,17 +44,19 @@ def get_dataloader(processor):
 
 def train_model(model, optimizer, cfg, train_dataloader):
     logger.info("Start training")
+    global_step = 0
     for epoch in range(cfg.epochs):
         for idx, batch in enumerate(train_dataloader):
             outputs = model(**batch.to(model.device))
             loss = outputs.loss
             if idx % 100 == 0:
                 logger.info(f"Epoch: {epoch} Iter: {idx} Loss: {loss.item():.4f}")
+                wandb.log({"train/loss": loss.item(), "epoch": epoch}, step=global_step)
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-
+            global_step += 1
     return model
 
 
@@ -82,8 +85,17 @@ if __name__ == "__main__":
     params_to_train = list(filter(lambda x: x.requires_grad, model.parameters()))
     optimizer = torch.optim.AdamW(params_to_train, lr=cfg.learning_rate)
 
+    wandb.init(
+        project=cfg.project_name,
+        name=cfg.run_name if hasattr(cfg, "run_name") else None,
+        config=vars(cfg),
+    )
+
     train_model(model, optimizer, cfg, train_dataloader)
 
     # Push the checkpoint to hub
     model.push_to_hub(cfg.checkpoint_id)
     processor.push_to_hub(cfg.checkpoint_id)
+
+    wandb.finish()
+    logger.info("Train finished")
