@@ -79,8 +79,6 @@ def train_collate_function(batch_of_samples, processor, dtype, transform=None):
     
     batch = processor(images=images, text=prompts, return_tensors="pt", padding=True)
 
-    print(batch)
-
     # The labels are the input_ids, and we mask the padding tokens in the loss computation
     labels = batch["input_ids"].clone()  # Clone input IDs for labels
 
