@@ -16,3 +16,4 @@ class Configuration:
     batch_size: int = 8
     learning_rate: float = 2e-05
     epochs = 2
+
