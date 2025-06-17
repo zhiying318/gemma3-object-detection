@@ -58,7 +58,7 @@ def train_model(model, optimizer, cfg, train_dataloader):
             outputs = model(**batch.to(model.device))
             loss = outputs.loss
             if idx % 100 == 0:
-                logger.info(f"Epoch: {epoch} Iter: {idx} Loss: {loss.item():.4f}")
+                logger.info(f"Epoch: {epoch} Iter: {idx}/{len(train_dataloader)} Loss: {loss.item():.4f}")
                 wandb.log({"train/loss": loss.item(), "epoch": epoch}, step=global_step)
 
             loss.backward()
