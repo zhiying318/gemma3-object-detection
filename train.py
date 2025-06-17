@@ -93,14 +93,14 @@ if __name__ == "__main__":
 
     logger.info("Getting model & turning only attention parameters to trainable")
     if "SmolVLM" in cfg.model_id or "Vision2Seq" in cfg.model_id:
-        print("Using AutoModelForVision2Seq")
+        logger.info("Using AutoModelForVision2Seq")
         model = AutoModelForVision2Seq.from_pretrained(
             cfg.model_id,
             device_map="auto"
         )
     else:
-        print("Using Gemma3ForConditionalGeneration")
-        model =AutoModelForCausalLM.from_pretrained(
+        logger.info("Using Gemma3ForConditionalGeneration")
+        model = AutoModelForCausalLM.from_pretrained(
             cfg.model_id,
             torch_dtype=cfg.dtype,
             device_map="auto",
