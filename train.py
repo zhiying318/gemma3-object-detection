@@ -5,7 +5,7 @@ from functools import partial
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader
-from transformers import AutoProcessor, AutoModelForVision2Seq, Gemma3ForConditionalGeneration
+from transformers import AutoProcessor, AutoModelForVision2Seq, AutoModelForCausalLM
 
 from config import Configuration
 from utils import train_collate_function
@@ -33,17 +33,17 @@ def get_augmentations():
 
 
 
-def get_dataloader(processor, args, dtype):
+def get_dataloader(processor, cfg):
     logger.info("Fetching the dataset")
     train_dataset = load_dataset(cfg.dataset_id, split="train")
     train_collate_fn = partial(
-        train_collate_function, processor=processor, dtype=cfg.dtype, transform=get_augmentations()
+        train_collate_function, processor=processor, device=cfg.device, transform=get_augmentations()
     )
 
     logger.info("Building data loader")
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=args.batch_size,
+        batch_size=cfg.batch_size,
         collate_fn=train_collate_fn,
         shuffle=True,
     )
@@ -69,28 +69,38 @@ def train_model(model, optimizer, cfg, train_dataloader):
 
 
 if __name__ == "__main__":
-    cfg = Configuration.from_args()
+    cfg = Configuration()
 
-    # Get values dynamicaly from user
-    parser = argparse.ArgumentParser(description="Training for PaLiGemma")
-    parser.add_argument('--model_id', type=str, required=True, default=cfg.model_id, help='Enter Huggingface Model ID')
-    parser.add_argument('--dataset_id', type=str, required=True ,default=cfg.dataset_id, help='Enter Huggingface Dataset ID')
-    parser.add_argument('--batch_size', type=int, default=cfg.batch_size, help='Enter Batch Size')
-    parser.add_argument('--lr', type=float, default=cfg.learning_rate, help='Enter Learning Rate')
-    parser.add_argument('--checkpoint_id', type=str, required=True, default=cfg.checkpoint_id, help='Enter Huggingface Repo ID to push model')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_id', type=str, help='Model ID on Hugging Face Hub')
+    parser.add_argument('--dataset_id', type=str, help='Dataset ID on Hugging Face Hub')
+    parser.add_argument('--batch_size', type=int, help='Batch size for training')
+    parser.add_argument('--learning_rate', type=float, help='Learning rate')
+    parser.add_argument('--epochs', type=int, help='Number of training epochs')
+    parser.add_argument('--checkpoint_id', type=str, help='Model repo to push to the Hub')
 
     args = parser.parse_args()
-    processor = AutoProcessor.from_pretrained(args.model_id)
-    train_dataloader = get_dataloader(processor=processor, args=args, dtype=cfg.dtype)
+
+    if args.model_id: cfg.model_id = args.model_id
+    if args.dataset_id: cfg.dataset_id = args.dataset_id
+    if args.batch_size: cfg.batch_size = args.batch_size
+    if args.learning_rate: cfg.learning_rate = args.learning_rate
+    if args.epochs: cfg.epochs = args.epochs
+    if args.checkpoint_id: cfg.checkpoint_id = args.checkpoint_id
+
+    processor = AutoProcessor.from_pretrained(cfg.model_id)
+    train_dataloader = get_dataloader(processor=processor, cfg=cfg)
 
     logger.info("Getting model & turning only attention parameters to trainable")
-    if cfg.model_id == "HuggingFaceTB/SmolVLM-256M-Instruct":
+    if "SmolVLM" in cfg.model_id or "Vision2Seq" in cfg.model_id:
+        print("Using AutoModelForVision2Seq")
         model = AutoModelForVision2Seq.from_pretrained(
             cfg.model_id,
-            device_map="auto",
+            device_map="auto"
         )
     else:
-        model = Gemma3ForConditionalGeneration.from_pretrained(
+        print("Using Gemma3ForConditionalGeneration")
+        model =AutoModelForCausalLM.from_pretrained(
             cfg.model_id,
             torch_dtype=cfg.dtype,
             device_map="auto",
@@ -107,7 +117,7 @@ if __name__ == "__main__":
 
     # Credits to Sayak Paul for this beautiful expression
     params_to_train = list(filter(lambda x: x.requires_grad, model.parameters()))
-    optimizer = torch.optim.AdamW(params_to_train, lr=args.lr)
+    optimizer = torch.optim.AdamW(params_to_train, lr=cfg.learning_rate)
 
     wandb.init(
         project=cfg.project_name,

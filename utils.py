@@ -54,7 +54,7 @@ def visualize_bounding_boxes(image, label, width, height, name):
     plt.close()
 
 
-def train_collate_function(batch_of_samples, processor, dtype, transform=None):
+def train_collate_function(batch_of_samples, processor, device, transform=None):
     images = []
     prompts = []
     for sample in batch_of_samples:
@@ -104,12 +104,12 @@ def train_collate_function(batch_of_samples, processor, dtype, transform=None):
 
     if not isinstance(processor, Idefics3Processor):
         batch["pixel_values"] = batch["pixel_values"].to(
-            dtype
+            device
         )  # to check with the implementation
     return batch
 
 
-def test_collate_function(batch_of_samples, processor, dtype):
+def test_collate_function(batch_of_samples, processor, device):
     images = []
     prompts = []
     for sample in batch_of_samples:
@@ -119,6 +119,6 @@ def test_collate_function(batch_of_samples, processor, dtype):
     batch = processor(images=images, text=prompts, return_tensors="pt", padding=True)
     if not isinstance(processor, Idefics3Processor):
         batch["pixel_values"] = batch["pixel_values"].to(
-            dtype
+            device
         )  # to check with the implementation
     return batch, images
