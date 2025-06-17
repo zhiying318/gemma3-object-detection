@@ -18,8 +18,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_augmentations():
-    if cfg.model_id == "HuggingFaceTB/SmolVLM-256M-Instruct":
+def get_augmentations(cfg):
+    if "SmolVLM" in cfg.model_id:
         resize_size = 512
     else:
         resize_size = 896
@@ -37,7 +37,7 @@ def get_dataloader(processor, cfg):
     logger.info("Fetching the dataset")
     train_dataset = load_dataset(cfg.dataset_id, split="train")
     train_collate_fn = partial(
-        train_collate_function, processor=processor, device=cfg.device, transform=get_augmentations()
+        train_collate_function, processor=processor, device=cfg.device, transform=get_augmentations(cfg)
     )
 
     logger.info("Building data loader")
@@ -92,14 +92,14 @@ if __name__ == "__main__":
     train_dataloader = get_dataloader(processor=processor, cfg=cfg)
 
     logger.info("Getting model & turning only attention parameters to trainable")
-    if "SmolVLM" in cfg.model_id or "Vision2Seq" in cfg.model_id:
+    if "SmolVLM" in cfg.model_id:
         logger.info("Using AutoModelForVision2Seq")
         model = AutoModelForVision2Seq.from_pretrained(
             cfg.model_id,
             device_map="auto"
         )
     else:
-        logger.info("Using Gemma3ForConditionalGeneration")
+        logger.info("Using AutoModelForCausalLM")
         model = AutoModelForCausalLM.from_pretrained(
             cfg.model_id,
             torch_dtype=cfg.dtype,
