@@ -3,7 +3,7 @@ import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import ImageDraw
+from PIL import ImageDraw, Image
 
 from transformers import Idefics3Processor
 
@@ -19,6 +19,10 @@ def parse_paligemma_label(label, width, height):
     loc_pattern = r"<loc(\d{4})>"
     locations = [int(loc) for loc in re.findall(loc_pattern, label)]
 
+    if len(locations) != 4:
+        # No bbox found or format incorrect
+        return None, None
+
     # Extract category (everything after the last location code)
     category = label.split(">")[-1].strip()
 
@@ -26,7 +30,7 @@ def parse_paligemma_label(label, width, height):
     # Order in PaliGemma format is: y1, x1, y2, x2
     y1_norm, x1_norm, y2_norm, x2_norm = locations
 
-    # Convert normalized coordinates to actual coordinates
+    # Convert normalized coordinates to image coordinates
     x1 = (x1_norm / 1024) * width
     y1 = (y1_norm / 1024) * height
     x2 = (x2_norm / 1024) * width
@@ -36,20 +40,25 @@ def parse_paligemma_label(label, width, height):
 
 
 def visualize_bounding_boxes(image, label, width, height, name):
-    # Create a copy of the image to draw on
+    # Convert image to PIL if needed
+    if isinstance(image, np.ndarray):
+        image = Image.fromarray(image)
+
     draw_image = image.copy()
     draw = ImageDraw.Draw(draw_image)
 
-    # Parse the label
+    # Parse label
     category, bbox = parse_paligemma_label(label, width, height)
 
-    # Draw the bounding box
-    draw.rectangle(bbox, outline="red", width=2)
+    if bbox is None:
+        print(f"[{name}] No bounding box detected. Skipping visualization.")
+        return  # Or save the image without bbox if you prefer
 
-    # Add category label
+    # Draw bbox and label
+    draw.rectangle(bbox, outline="red", width=2)
     draw.text((bbox[0], max(0, bbox[1] - 10)), category, fill="red")
 
-    # Show the image
+    # Plot
     plt.figure(figsize=(10, 6))
     plt.imshow(draw_image)
     plt.axis("off")
@@ -115,10 +124,13 @@ def train_collate_function(batch_of_samples, processor, device, transform=None):
     return batch
 
 
-def test_collate_function(batch_of_samples, processor, device):
+def test_collate_function(batch_of_samples, processor, device, transform=None):
     images = []
     prompts = []
     for sample in batch_of_samples:
+        if transform:
+            transformed = transform(image=np.array(sample["image"]))
+            sample["image"] = Image.fromarray(transformed["image"])
         images.append([sample["image"]])
         prompts.append(f"{processor.tokenizer.boi_token} detect \n\n")
 
