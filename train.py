@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoProcessor, AutoModelForVision2Seq, AutoModelForCausalLM
 
 from config import Configuration
-from utils import train_collate_function
+from utils import train_collate_function, get_processor_with_new_tokens, get_model_with_resize_token_embeddings
 import argparse
 import albumentations as A
 
@@ -67,6 +67,28 @@ def train_model(model, optimizer, cfg, train_dataloader):
             global_step += 1
     return model
 
+def set_trainable_params(model, keywords):
+    for name, param in model.named_parameters():
+        param.requires_grad = any(k in name for k in keywords)
+
+
+def run_training_phase(model, processor, cfg, train_dataloader, train_keys, phase_name="phase"):
+    set_trainable_params(model, train_keys)
+    model.train()
+    model.to(cfg.device)
+
+    params_to_train = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = torch.optim.AdamW(params_to_train, lr=cfg.learning_rate)
+
+    wandb.init(
+        project=cfg.project_name,
+        name=f"{cfg.run_name}_{phase_name}" if hasattr(cfg, "run_name") else phase_name,
+        config=vars(cfg),
+    )
+
+    train_model(model, optimizer, cfg, train_dataloader)
+    wandb.finish()
+c
 
 if __name__ == "__main__":
     cfg = Configuration()
@@ -78,6 +100,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, help='Learning rate')
     parser.add_argument('--epochs', type=int, help='Number of training epochs')
     parser.add_argument('--checkpoint_id', type=str, help='Model repo to push to the Hub')
+    parser.add_argument('--include_loc_tokens', action='store_true', help='Include location tokens in the model.')
 
     args = parser.parse_args()
 
@@ -89,47 +112,31 @@ if __name__ == "__main__":
     if args.checkpoint_id: cfg.checkpoint_id = args.checkpoint_id
 
     processor = AutoProcessor.from_pretrained(cfg.model_id)
+    if args.include_loc_tokens:
+        logger.info("Adding location tokens to the tokenizer")
+        processor = get_processor_with_new_tokens(processor)
+
     train_dataloader = get_dataloader(processor=processor, cfg=cfg)
 
-    logger.info("Getting model & turning only attention parameters to trainable")
+    logger.info("Loading model")
     if "SmolVLM" in cfg.model_id:
-        logger.info("Using AutoModelForVision2Seq")
-        model = AutoModelForVision2Seq.from_pretrained(
-            cfg.model_id,
-            device_map="auto"
-        )
+        model = AutoModelForVision2Seq.from_pretrained(cfg.model_id, device_map="auto")
     else:
-        logger.info("Using AutoModelForCausalLM")
-        model = AutoModelForCausalLM.from_pretrained(
-            cfg.model_id,
-            torch_dtype=cfg.dtype,
-            device_map="auto",
-            _attn_implementation="eager",
-        )
-    for name, param in model.named_parameters():
-        if "attn" in name:
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
+        model = AutoModelForCausalLM.from_pretrained(cfg.model_id, torch_dtype=cfg.dtype, device_map="auto", _attn_implementation="eager")
 
-    model.train()
-    model.to(cfg.device)
+    if args.include_loc_tokens:
+        model = get_model_with_resize_token_embeddings(model, processor)
 
-    # Credits to Sayak Paul for this beautiful expression
-    params_to_train = list(filter(lambda x: x.requires_grad, model.parameters()))
-    optimizer = torch.optim.AdamW(params_to_train, lr=cfg.learning_rate)
+        logger.info("Stage 1: Training embed_tokens")
+        run_training_phase(model, processor, cfg, train_dataloader, train_keys=["embed_tokens"], phase_name="embed_only")
 
-    wandb.init(
-        project=cfg.project_name,
-        name=cfg.run_name if hasattr(cfg, "run_name") else None,
-        config=vars(cfg),
-    )
+        logger.info("Stage 2: Fine-tuning embed_tokens + attn")
+        run_training_phase(model, processor, cfg, train_dataloader, train_keys=["embed_tokens", "attn"], phase_name="embed_attn")
+    else:
+        logger.info("Single-stage: Fine-tuning attn only")
+        run_training_phase(model, processor, cfg, train_dataloader, train_keys=["attn"], phase_name="attn_only")
 
-    train_model(model, optimizer, cfg, train_dataloader)
-
-    # Push the checkpoint to hub
     model.push_to_hub(cfg.checkpoint_id)
     processor.push_to_hub(cfg.checkpoint_id)
 
-    wandb.finish()
     logger.info("Train finished")

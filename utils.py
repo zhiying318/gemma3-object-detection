@@ -1,4 +1,5 @@
 import re
+import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +8,11 @@ from PIL import ImageDraw
 from transformers import Idefics3Processor
 
 from create_dataset import format_objects
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 def parse_paligemma_label(label, width, height):
     # Extract location codes
@@ -122,3 +128,35 @@ def test_collate_function(batch_of_samples, processor, device):
             device
         )  # to check with the implementation
     return batch, images
+
+def get_processor_with_new_tokens(processor):
+    # Get processor's tokenizer
+    tokenizer = processor.tokenizer
+
+    # Get original sizes
+    original_vocab_size = tokenizer.vocab_size
+    original_total_size = len(tokenizer)
+
+    logger.info(f"Original vocab size (pretrained): {original_vocab_size}")
+    logger.info(f"Original total tokenizer size (includes added tokens): {original_total_size}")
+
+    # Add new location tokens
+    location_tokens = [f"<loc{i:04}>" for i in range(1024)]
+    added_tokens_count = tokenizer.add_tokens(location_tokens, special_tokens=False)
+
+    # Get updated sizes
+    new_total_size = len(tokenizer)
+
+    logger.info(f"Number of new tokens added: {added_tokens_count}")
+    logger.info(f"New total tokenizer size: {new_total_size}")
+
+    # Attach updated tokenizer to processor if needed
+    processor.tokenizer = tokenizer
+
+    return processor
+
+def get_model_with_resize_token_embeddings(model, processor):
+    tokenizer = processor.tokenizer
+    model.resize_token_embeddings(len(tokenizer))
+    logger.info(f"Model's token embeddings resized to: {len(tokenizer)}")
+    return model
