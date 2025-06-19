@@ -129,6 +129,7 @@ def test_collate_function(batch_of_samples, processor, device):
         )  # to check with the implementation
     return batch, images
 
+
 def get_processor_with_new_tokens(processor):
     # Get processor's tokenizer
     tokenizer = processor.tokenizer
@@ -160,3 +161,4 @@ def get_model_with_resize_token_embeddings(model, processor):
     model.resize_token_embeddings(len(tokenizer))
     logger.info(f"Model's token embeddings resized to: {len(tokenizer)}")
     return model
+
