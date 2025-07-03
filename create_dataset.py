@@ -16,7 +16,7 @@ def convert_to_detection_string(bboxs, image_width, image_height):
     detection_strings = []
     for bbox in bboxs:
         x1, y1, x2, y2 = coco_to_xyxy(bbox)
-        name = "plate"
+        name = "bbox"
         locs = [
             format_location(y1, image_height),
             format_location(x1, image_width),
@@ -34,7 +34,8 @@ def format_objects(example):
     width = example["width"]
     bboxs = example["objects"]["bbox"]
     formatted_objects = convert_to_detection_string(bboxs, width, height)
-    return {"label_for_paligemma": formatted_objects}
+    # return {"label_for_paligemma": formatted_objects}
+    return {"bbox_location_label": formatted_objects}
 
 
 if __name__ == "__main__":
@@ -43,6 +44,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process dataset for PaLiGemma')
     parser.add_argument('--dataset', type=str, required=True, default=cfg.dataset_id, help='Hugging Face dataset ID')
     parser.add_argument('--output_repo', type=str, required=True, help='Output repository ID for Hugging Face Hub')
+    parser.add_argument('--config', type=str, default=False, help='Optional config for dataset')
     args = parser.parse_args()
 
     # load the dataset

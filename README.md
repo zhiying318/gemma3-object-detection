@@ -46,6 +46,8 @@ Each bounding box is encoded as a sequence of location tokens like `<loc0123>`, 
 
 To reproduce the dataset or modify it for your use case, refer to the script [`create_dataset.py`](./create_dataset.py).
 
+If encountered problem like `ValueError: Invalid pattern: ‘**’ can only be an entire path component`, please do `pip install -U datasets huggingface_hub fsspec` or `uv pip install -U datasets huggingface_hub fsspec` to fix the problem.
+
 
 ## ⚙️ Setup and Installation
 

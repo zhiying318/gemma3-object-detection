@@ -88,7 +88,7 @@ def run_training_phase(model, processor, cfg, train_dataloader, train_keys, phas
 
     train_model(model, optimizer, cfg, train_dataloader)
     wandb.finish()
-c
+
 
 if __name__ == "__main__":
     cfg = Configuration()
